@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Chat App</title>
+</head>
+<body>
+        <div id="container3">
+            <div class="toggle-wrapper">
+      <input type="checkbox" id="toggle-checkbox">
+      <label for="toggle-checkbox" class="toggle-label">
+        <span class="toggle-circle"></span>
+      </label>
+    </div>
+            <h1>ChatsApp</h1>
+            <div id="messages" class="message-box"></div>
+                <div class="message-input">
+      <input
+        type="text"
+        name="message"
+        id="message"
+        placeholder="Type a Message...."
+      />
+      <button onclick="sendMessage()" id="send">
+        <img src="./download-removebg-preview.png" height="25" alt="Send">
+      </button>
+    </div>
+        </div>
+    <script type="module" src="./script.js"></script>
+</body>
+</html>
