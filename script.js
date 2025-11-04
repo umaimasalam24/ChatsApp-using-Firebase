@@ -16,6 +16,7 @@ import {
   onChildChanged,
   update,
   remove,
+  get,
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-analytics.js";
 
@@ -88,17 +89,19 @@ document.getElementById("user-btn")?.addEventListener("click", () => {
   window.location.href = "chat.html";
 });
 
-// ====== Chat Page Functions ======
+// ====== Send Message ======
 window.sendMessage = function () {
   const username = localStorage.getItem("anyName");
   const message = document.getElementById("message").value.trim();
+  const user = auth.currentUser;
 
-  if (!username || !message) return;
+  if (!username || !message || !user) return;
 
   push(ref(db, "messages"), {
     name: username,
     text: message,
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    uid: user.uid, // store sender UID
+    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   });
 
   document.getElementById("message").value = "";
@@ -108,21 +111,30 @@ window.sendMessage = function () {
 onChildAdded(ref(db, "messages"), (snapshot) => {
   const data = snapshot.val();
   const id = snapshot.key;
+  const currentUser = auth.currentUser;
 
   const msgDiv = document.createElement("div");
   msgDiv.id = id;
-  msgDiv.className = "message";
+  msgDiv.className =
+    currentUser && currentUser.uid === data.uid ? "message my-message" : "message other-message";
+
+  const isOwner = currentUser && currentUser.uid === data.uid;
+  const actions = isOwner
+    ? `<div class="actions">
+        <button onclick="editMessage('${id}', '${data.text}')">Edit</button>
+        <button onclick="deleteMessage('${id}')">Delete</button>
+      </div>`
+    : "";
+
   msgDiv.innerHTML = `
     <p><b>${data.name}:</b> ${data.text}</p>
     <span class="time">${data.time || ""}</span>
-    <div class="actions">
-      <button onclick="editMessage('${id}', '${data.text}')">Edit</button>
-      <button onclick="deleteMessage('${id}')">Delete</button>
-    </div>
+    ${actions}
   `;
 
   document.getElementById("messages").appendChild(msgDiv);
 });
+
 // ====== Edit Messages ======
 onChildChanged(ref(db, "messages"), (snapshot) => {
   const data = snapshot.val();
@@ -136,31 +148,40 @@ onChildChanged(ref(db, "messages"), (snapshot) => {
 });
 
 window.editMessage = function (id, oldText) {
-  const newText = prompt("Edit your message:", oldText);
-  if (newText && newText.trim() !== "") {
-    const username = localStorage.getItem("anyName");
-    const newTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const user = auth.currentUser;
+  if (!user) return alert("You must be logged in!");
 
-    update(ref(db, "messages/" + id), {
-      text: newText,
-      time: newTime
-    });
+  const messageRef = ref(db, "messages/" + id);
+  get(messageRef).then((snapshot) => {
+    const data = snapshot.val();
+    if (data.uid !== user.uid) return alert("You can only edit your own messages!");
 
-    const msgDiv = document.getElementById(id);
-    msgDiv.querySelector("p").innerHTML = `<b>${username}:</b> ${newText} <span style="color:gray; font-size:12px;">(edited)</span>`;
-    msgDiv.querySelector(".time").textContent = newTime;
-  }
+    const newText = prompt("Edit your message:", oldText);
+    if (newText && newText.trim() !== "") {
+      const newTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      update(messageRef, { text: newText, time: newTime });
+    }
+  });
 };
 
 // ====== Delete Messages ======
 window.deleteMessage = function (id) {
-  if (confirm("Are you sure you want to delete this message?")) {
-    remove(ref(db, "messages/" + id));
-    document.getElementById(id)?.remove();
-  }
+  const user = auth.currentUser;
+  if (!user) return alert("You must be logged in!");
+
+  const messageRef = ref(db, "messages/" + id);
+  get(messageRef).then((snapshot) => {
+    const data = snapshot.val();
+    if (data.uid !== user.uid) return alert("You can only delete your own messages!");
+
+    if (confirm("Are you sure you want to delete this message?")) {
+      remove(messageRef);
+      document.getElementById(id)?.remove();
+    }
+  });
 };
 
-// ====== Theme Toggle (for all pages) ======
+// ====== Theme Toggle ======
 const checkbox = document.getElementById("toggle-checkbox");
 const containers = ["container1", "container2", "container3"];
 
@@ -172,3 +193,4 @@ if (checkbox) {
     });
   });
 }
+
